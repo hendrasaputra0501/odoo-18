@@ -472,6 +472,12 @@ class SequenceMixin(models.AbstractModel):
             last_sequence = self._get_last_sequence(relaxed=True) or self._get_starting_sequence()
 
         format_string, format_values = self._get_sequence_format_param(last_sequence)
+        
+        # Check if goods_type changed - if so, treat as new sequence
+        if 'goods_type' in format_values and hasattr(self, 'goods_type') and self.goods_type:
+            if format_values.get('goods_type') and format_values['goods_type'] != self.goods_type:
+                new = True
+        
         if new:
             sequence_number_reset = self._deduce_sequence_number_reset(last_sequence)
             date_start, date_end, forced_year_start, forced_year_end = self._get_sequence_date_range(sequence_number_reset)
