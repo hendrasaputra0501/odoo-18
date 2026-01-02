@@ -33,15 +33,14 @@ class AccountJournal(models.Model):
                     ) % str(e))
                 
                 # Check if the regex contains the required 'seq' named group
-                # by attempting to match and checking for the group
-                if '(?P<seq>' not in journal.sequence_override_regex:
+                if 'seq' not in compiled_regex.groupindex:
                     raise ValidationError(_(
                         'The sequence regex should at least contain the seq grouping keys. For instance:\n'
                         r'^(?P<prefix1>.*?)(?P<seq>\d+)(?P<suffix>\D*?)$'
                     ))
                 
                 # Validate that the regex can actually match a sequence with digits in the seq group
-                # Try to match a simple test sequence
+                # Try to match test sequences to ensure the regex is functional
                 test_sequences = [
                     'TEST0001',              # Simple pattern
                     'AD-SI-L-2601-01-0001',  # Complex month_goods_type pattern

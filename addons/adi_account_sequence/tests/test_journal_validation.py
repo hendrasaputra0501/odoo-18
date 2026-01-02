@@ -7,6 +7,13 @@ from odoo.exceptions import ValidationError
 @tagged('post_install', '-at_install')
 class TestJournalSequenceValidation(TransactionCase):
     """Test sequence_override_regex validation on account.journal."""
+    
+    # Class constants for reusable test data
+    VALID_GOODS_TYPE_REGEX = r'^(?P<prefix1>.*?)(?P<year>\d{2})(?P<month>\d{2})(?P<prefix2>\D+?)(?P<goods_type>\w+)(?P<prefix3>\D+?)(?P<seq>\d+)(?P<suffix>\D*?)$'
+    VALID_MONTHLY_REGEX = r'^(?P<prefix1>.*?)(?P<year>\d{4})(?P<prefix2>\D*?)(?P<month>\d{2})(?P<prefix3>\D+?)(?P<seq>\d+)(?P<suffix>\D*?)$'
+    VALID_SIMPLE_REGEX = r'^(?P<prefix1>.*?)(?P<seq>\d+)(?P<suffix>\D*?)$'
+    INVALID_NO_SEQ_REGEX = r'^(?P<prefix1>.*?)(?P<year>\d{2})(?P<month>\d{2})$'
+    INVALID_SYNTAX_REGEX = r'^(?P<prefix1>.*?)(?P<seq>\d+[)$'  # Missing closing parenthesis for named group
 
     def test_valid_sequence_regex(self):
         """Test that valid regex patterns are accepted."""
@@ -15,7 +22,7 @@ class TestJournalSequenceValidation(TransactionCase):
             'name': 'Test Valid Goods Type',
             'code': 'VGT',
             'type': 'sale',
-            'sequence_override_regex': r'^(?P<prefix1>.*?)(?P<year>\d{2})(?P<month>\d{2})(?P<prefix2>\D+?)(?P<goods_type>\w+)(?P<prefix3>\D+?)(?P<seq>\d+)(?P<suffix>\D*?)$'
+            'sequence_override_regex': self.VALID_GOODS_TYPE_REGEX
         })
         self.assertTrue(journal.id, "Journal with valid goods_type regex should be created")
         
@@ -24,7 +31,7 @@ class TestJournalSequenceValidation(TransactionCase):
             'name': 'Test Valid Monthly',
             'code': 'VML',
             'type': 'sale',
-            'sequence_override_regex': r'^(?P<prefix1>.*?)(?P<year>\d{4})(?P<prefix2>\D*?)(?P<month>\d{2})(?P<prefix3>\D+?)(?P<seq>\d+)(?P<suffix>\D*?)$'
+            'sequence_override_regex': self.VALID_MONTHLY_REGEX
         })
         self.assertTrue(journal2.id, "Journal with valid monthly regex should be created")
         
@@ -33,7 +40,7 @@ class TestJournalSequenceValidation(TransactionCase):
             'name': 'Test Valid Simple',
             'code': 'VSP',
             'type': 'sale',
-            'sequence_override_regex': r'^(?P<prefix1>.*?)(?P<seq>\d+)(?P<suffix>\D*?)$'
+            'sequence_override_regex': self.VALID_SIMPLE_REGEX
         })
         self.assertTrue(journal3.id, "Journal with valid simple regex should be created")
 
@@ -44,7 +51,7 @@ class TestJournalSequenceValidation(TransactionCase):
                 'name': 'Test Invalid No Seq',
                 'code': 'INS',
                 'type': 'sale',
-                'sequence_override_regex': r'^(?P<prefix1>.*?)(?P<year>\d{2})(?P<month>\d{2})$'
+                'sequence_override_regex': self.INVALID_NO_SEQ_REGEX
             })
         self.assertIn('seq grouping keys', str(cm.exception))
 
@@ -55,7 +62,7 @@ class TestJournalSequenceValidation(TransactionCase):
                 'name': 'Test Invalid Syntax',
                 'code': 'IVS',
                 'type': 'sale',
-                'sequence_override_regex': r'^(?P<prefix1>.*?)(?P<seq>\d+[)$'  # Missing closing parenthesis
+                'sequence_override_regex': self.INVALID_SYNTAX_REGEX
             })
         self.assertIn('invalid', str(cm.exception).lower())
 
@@ -78,5 +85,5 @@ class TestJournalSequenceValidation(TransactionCase):
         })
         
         with self.assertRaises(ValidationError) as cm:
-            journal.sequence_override_regex = r'^(?P<prefix1>.*?)(?P<year>\d{2})$'  # No seq group
+            journal.sequence_override_regex = self.INVALID_NO_SEQ_REGEX
         self.assertIn('seq grouping keys', str(cm.exception))
