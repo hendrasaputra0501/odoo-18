@@ -99,10 +99,6 @@ class AccountMove(models.Model):
     def _sequence_year_range_monthly_regex(self):
         return self.journal_id.sequence_override_regex or super()._sequence_year_range_monthly_regex
 
-    @property
-    def _sequence_monthly_goods_type_regex(self):
-        return self.journal_id.sequence_override_regex or super()._sequence_monthly_goods_type_regex
-
     # ==============================================================================================
     #                                          JOURNAL ENTRY
     # ==============================================================================================
@@ -116,13 +112,6 @@ class AccountMove(models.Model):
         index='trigram',
     )
     name_placeholder = fields.Char(compute='_compute_name_placeholder')
-    goods_type = fields.Char(
-        string='Goods Type',
-        size=10,
-        help='Goods type code used in the sequence number (e.g., 01 for goods type 1)',
-        copy=False,
-        tracking=True,
-    )
     ref = fields.Char(
         string='Reference',
         copy=False,
