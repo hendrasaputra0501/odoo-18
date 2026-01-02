@@ -197,10 +197,10 @@ class AccountJournal(models.Model):
     )
     display_invoice_template_pdf_report_id = fields.Boolean(default=_default_display_invoice_template_pdf_report_id, store=False)
     sequence_override_regex = fields.Text(help="Technical field used to enforce complex sequence composition that the system would normally misunderstand.\n"\
-                                          "This is a regex that can include all the following capture groups: prefix1, year, prefix2, month, prefix3, seq, suffix.\n"\
-                                          "The prefix* groups are the separators between the year, month and the actual increasing sequence number (seq).\n"\
-
-                                          r"e.g: ^(?P<prefix1>.*?)(?P<year>\d{4})(?P<prefix2>\D*?)(?P<month>\d{2})(?P<prefix3>\D+?)(?P<seq>\d+)(?P<suffix>\D*?)$")
+                                          "This is a regex that can include all the following capture groups: prefix1, year, prefix2, month, prefix3, goods_type, seq, suffix.\n"\
+                                          "The prefix* groups are the separators between the year, month, goods_type and the actual increasing sequence number (seq).\n"\
+                                          "The goods_type group is optional and can be used to include a custom field value in the sequence.\n"\
+                                          r"e.g: ^(?P<prefix1>.*?)(?P<year>\d{4})(?P<month>\d{2})(?P<prefix2>\D*?)(?P<goods_type>\w+)(?P<prefix3>\D+?)(?P<seq>\d+)(?P<suffix>\D*?)$")
 
     inbound_payment_method_line_ids = fields.One2many(
         comodel_name='account.payment.method.line',

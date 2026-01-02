@@ -37,10 +37,12 @@ class SequenceMixin(models.AbstractModel):
     year = r'(?P<year>((?<=\D)|(?<=^))((19|20|21)\d{2}|(\d{2}(?=\D))))'
     year_end = r'(?P<year_end>((?<=\D)|(?<=^))((19|20|21)\d{2}|(\d{2}(?=\D))))'
     suffix = r'(?P<suffix>\D*?)'
+    goods_type = r'(?P<goods_type>\w+)'
 
     _sequence_year_range_monthly_regex = fr'^{prefix}{year}{prefix2}{year_end}(?P<prefix3>\D){month}(?P<prefix4>\D+?){seq}{suffix}$'
     _sequence_year_range_regex = fr'^(?:{prefix}{year}{prefix2}{year_end}{prefix3})?{seq}{suffix}$'
     _sequence_monthly_regex = fr'^{prefix}{year}(?P<prefix2>\D*?){month}{prefix3}{seq}{suffix}$'
+    _sequence_monthly_goods_type_regex = fr'^{prefix}{year}{month}(?P<prefix2>\D+?){goods_type}(?P<prefix3>\D+?){seq}{suffix}$'
     _sequence_yearly_regex = fr'^{prefix}(?P<year>((?<=\D)|(?<=^))((19|20|21)?\d{{2}}))(?P<prefix2>\D+?){seq}{suffix}$'
     _sequence_fixed_regex = fr'^{prefix}(?P<seq>\d{{0,9}}){suffix}$'
 
@@ -118,7 +120,7 @@ class SequenceMixin(models.AbstractModel):
         ref_date = fields.Date.to_date(self[self._sequence_date_field])
         if reset in ('year', 'year_range', 'year_range_month'):
             return (date(ref_date.year, 1, 1), date(ref_date.year, 12, 31), None, None)
-        if reset == 'month':
+        if reset in ('month', 'month_goods_type'):
             return date_utils.get_month(ref_date) + (None, None)
         if reset == 'never':
             return (date(1, 1, 1), date(9999, 12, 31), None, None)
@@ -198,6 +200,7 @@ class SequenceMixin(models.AbstractModel):
         """
         for regex, ret_val, requirements in [
             (self._sequence_year_range_monthly_regex, 'year_range_month', ['seq', 'year', 'year_end', 'month']),
+            (self._sequence_monthly_goods_type_regex, 'month_goods_type', ['seq', 'month', 'year', 'goods_type']),
             (self._sequence_monthly_regex, 'month', ['seq', 'month', 'year']),
             (self._sequence_year_range_regex, 'year_range', ['seq', 'year', 'year_end']),
             (self._sequence_yearly_regex, 'year', ['seq', 'year']),
@@ -326,6 +329,8 @@ class SequenceMixin(models.AbstractModel):
             regex = self._sequence_year_range_regex
         elif sequence_number_reset == 'month':
             regex = self._sequence_monthly_regex
+        elif sequence_number_reset == 'month_goods_type':
+            regex = self._sequence_monthly_goods_type_regex
         elif sequence_number_reset == 'year_range_month':
             regex = self._sequence_year_range_monthly_regex
         format_values = re.match(regex, previous).groupdict()
@@ -338,13 +343,19 @@ class SequenceMixin(models.AbstractModel):
             format_values['suffix'] = ''
         for field in ('seq', 'year', 'month', 'year_end'):
             format_values[field] = int(format_values.get(field) or 0)
+        # Keep goods_type as string
+        if 'goods_type' in format_values and format_values['goods_type'] is not None:
+            format_values['goods_type'] = str(format_values['goods_type'])
+        else:
+            format_values['goods_type'] = ''
 
-        placeholders = re.findall(r'\b(prefix\d|seq|suffix\d?|year|year_end|month)\b', regex)
+        placeholders = re.findall(r'\b(prefix\d|seq|suffix\d?|year|year_end|month|goods_type)\b', regex)
         format = ''.join(
             "{seq:0{seq_length}d}" if s == 'seq' else
             "{month:02d}" if s == 'month' else
             "{year:0{year_length}d}" if s == 'year' else
             "{year_end:0{year_end_length}d}" if s == 'year_end' else
+            "{goods_type}" if s == 'goods_type' else
             "{%s}" % s
             for s in placeholders
         )
@@ -468,6 +479,9 @@ class SequenceMixin(models.AbstractModel):
             format_values['year'] = self._truncate_year_to_length(forced_year_start or date_start.year, format_values['year_length'])
             format_values['year_end'] = self._truncate_year_to_length(forced_year_end or date_end.year, format_values['year_end_length'])
             format_values['month'] = self[self._sequence_date_field].month
+        # Populate goods_type from the record if it has this field and it's in the format
+        if 'goods_type' in format_values and hasattr(self, 'goods_type'):
+            format_values['goods_type'] = self.goods_type or format_values.get('goods_type', '')
         return format_string, format_values
 
     def _is_last_from_seq_chain(self):
