@@ -23,15 +23,7 @@ class AccountJournal(models.Model):
         """Validate that the sequence_override_regex contains at least the seq grouping key."""
         for journal in self:
             if journal.sequence_override_regex:
-                # Try to match the regex with a sample sequence
-                test_sequences = [
-                    'AD-SI-L-2601-01-0001',  # month_goods_type pattern
-                    'INV/2026/01/0001',      # monthly pattern
-                    'INV/2026/0001',         # yearly pattern
-                    'INV0001',               # fixed pattern
-                ]
-                
-                # Check if the regex is valid
+                # Check if the regex is valid syntax
                 try:
                     compiled_regex = re.compile(journal.sequence_override_regex)
                 except re.error as e:
@@ -40,19 +32,35 @@ class AccountJournal(models.Model):
                         'Please provide a valid regular expression.'
                     ) % str(e))
                 
-                # Try to match at least one test sequence to validate structure
+                # Check if the regex contains the required 'seq' named group
+                # by attempting to match and checking for the group
+                if '(?P<seq>' not in journal.sequence_override_regex:
+                    raise ValidationError(_(
+                        'The sequence regex should at least contain the seq grouping keys. For instance:\n'
+                        r'^(?P<prefix1>.*?)(?P<seq>\d+)(?P<suffix>\D*?)$'
+                    ))
+                
+                # Validate that the regex can actually match a sequence with digits in the seq group
+                # Try to match a simple test sequence
+                test_sequences = [
+                    'TEST0001',              # Simple pattern
+                    'AD-SI-L-2601-01-0001',  # Complex month_goods_type pattern
+                    'INV/2026/01/0001',      # Monthly pattern
+                    'INV/2026/0001',         # Yearly pattern
+                ]
+                
                 matched = False
                 for test_seq in test_sequences:
                     match = compiled_regex.match(test_seq)
                     if match:
                         groupdict = match.groupdict()
-                        # Check if seq group exists
-                        if 'seq' in groupdict and groupdict['seq'] is not None:
+                        # Check if seq group exists and has a value (not None and not empty)
+                        if 'seq' in groupdict and groupdict['seq']:
                             matched = True
                             break
                 
                 if not matched:
                     raise ValidationError(_(
                         'The sequence regex should at least contain the seq grouping keys. For instance:\n'
-                        r'^(?P<prefix1>.*?)(?P<seq>\d*)(?P<suffix>\D*?)$'
+                        r'^(?P<prefix1>.*?)(?P<seq>\d+)(?P<suffix>\D*?)$'
                     ))
