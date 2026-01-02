@@ -474,9 +474,8 @@ class SequenceMixin(models.AbstractModel):
         format_string, format_values = self._get_sequence_format_param(last_sequence)
         
         # Check if goods_type changed - if so, treat as new sequence
-        if 'goods_type' in format_values and hasattr(self, 'goods_type') and self.goods_type:
-            if format_values.get('goods_type') and format_values['goods_type'] != self.goods_type:
-                new = True
+        if self._should_reset_sequence_for_goods_type(format_values):
+            new = True
         
         if new:
             sequence_number_reset = self._deduce_sequence_number_reset(last_sequence)
@@ -489,6 +488,19 @@ class SequenceMixin(models.AbstractModel):
         if 'goods_type' in format_values and hasattr(self, 'goods_type'):
             format_values['goods_type'] = self.goods_type or format_values.get('goods_type', '')
         return format_string, format_values
+
+    def _should_reset_sequence_for_goods_type(self, format_values):
+        """Check if the sequence should be reset due to goods_type change.
+        
+        :param format_values: dict of format values extracted from previous sequence
+        :return: True if sequence should reset, False otherwise
+        """
+        if 'goods_type' not in format_values:
+            return False
+        if not hasattr(self, 'goods_type') or not self.goods_type:
+            return False
+        previous_goods_type = format_values.get('goods_type')
+        return previous_goods_type and previous_goods_type != self.goods_type
 
     def _is_last_from_seq_chain(self):
         """Tells whether or not this element is the last one of the sequence chain.

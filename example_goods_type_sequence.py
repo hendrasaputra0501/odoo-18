@@ -5,6 +5,19 @@ Example script demonstrating how to use the custom sequence format with goods_ty
 This script would be run in an Odoo environment to set up and test the sequence.
 """
 
+# Get or create a partner for testing
+partner = env['res.partner'].search([('customer_rank', '>', 0)], limit=1)
+if not partner:
+    partner = env['res.partner'].create({
+        'name': 'Test Customer',
+        'customer_rank': 1,
+    })
+
+# Get a revenue account
+revenue_account = env['account.account'].search([('account_type', '=', 'income')], limit=1)
+if not revenue_account:
+    raise Exception("No income account found. Please create one first.")
+
 # Step 1: Create or get a journal
 journal = env['account.journal'].create({
     'name': 'Customer Invoice - Goods Type',
@@ -21,7 +34,7 @@ move1 = env['account.move'].create({
     'move_type': 'out_invoice',
     'date': '2026-01-15',
     'invoice_date': '2026-01-15',
-    'partner_id': 1,  # Replace with actual partner ID
+    'partner_id': partner.id,
     'journal_id': journal.id,
     'goods_type': '01',
     'name': 'AD-SI-L-2601-01-0001',  # Set initial sequence format
@@ -30,7 +43,7 @@ move1 = env['account.move'].create({
             'name': 'Product A',
             'quantity': 1,
             'price_unit': 1000.0,
-            'account_id': env['account.account'].search([('account_type', '=', 'income')], limit=1).id,
+            'account_id': revenue_account.id,
         }),
     ]
 })
@@ -42,7 +55,7 @@ move2 = env['account.move'].create({
     'move_type': 'out_invoice',
     'date': '2026-01-20',
     'invoice_date': '2026-01-20',
-    'partner_id': 1,
+    'partner_id': partner.id,
     'journal_id': journal.id,
     'goods_type': '01',
     'invoice_line_ids': [
@@ -50,7 +63,7 @@ move2 = env['account.move'].create({
             'name': 'Product B',
             'quantity': 2,
             'price_unit': 2000.0,
-            'account_id': env['account.account'].search([('account_type', '=', 'income')], limit=1).id,
+            'account_id': revenue_account.id,
         }),
     ]
 })
@@ -62,7 +75,7 @@ move3 = env['account.move'].create({
     'move_type': 'out_invoice',
     'date': '2026-01-25',
     'invoice_date': '2026-01-25',
-    'partner_id': 1,
+    'partner_id': partner.id,
     'journal_id': journal.id,
     'goods_type': '02',
     'invoice_line_ids': [
@@ -70,7 +83,7 @@ move3 = env['account.move'].create({
             'name': 'Product C',
             'quantity': 1,
             'price_unit': 1500.0,
-            'account_id': env['account.account'].search([('account_type', '=', 'income')], limit=1).id,
+            'account_id': revenue_account.id,
         }),
     ]
 })
@@ -82,7 +95,7 @@ move4 = env['account.move'].create({
     'move_type': 'out_invoice',
     'date': '2026-02-10',
     'invoice_date': '2026-02-10',
-    'partner_id': 1,
+    'partner_id': partner.id,
     'journal_id': journal.id,
     'goods_type': '01',
     'invoice_line_ids': [
@@ -90,7 +103,7 @@ move4 = env['account.move'].create({
             'name': 'Product D',
             'quantity': 3,
             'price_unit': 3000.0,
-            'account_id': env['account.account'].search([('account_type', '=', 'income')], limit=1).id,
+            'account_id': revenue_account.id,
         }),
     ]
 })
@@ -102,7 +115,7 @@ move5 = env['account.move'].create({
     'move_type': 'out_invoice',
     'date': '2026-01-28',
     'invoice_date': '2026-01-28',
-    'partner_id': 1,
+    'partner_id': partner.id,
     'journal_id': journal.id,
     'goods_type': '01',
     'invoice_line_ids': [
@@ -110,7 +123,7 @@ move5 = env['account.move'].create({
             'name': 'Product E',
             'quantity': 1,
             'price_unit': 500.0,
-            'account_id': env['account.account'].search([('account_type', '=', 'income')], limit=1).id,
+            'account_id': revenue_account.id,
         }),
     ]
 })

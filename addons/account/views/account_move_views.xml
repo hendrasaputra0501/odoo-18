@@ -1016,7 +1016,8 @@
                                        invisible="move_type not in ('in_invoice', 'in_receipt', 'in_refund')" />
                                 <field name="ref" default_focus="1" nolabel="1" invisible="move_type not in ('in_invoice', 'in_receipt', 'in_refund')"/>
                                 <field name="ref" default_focus="1" invisible="move_type != 'entry'"/>
-                                <field name="goods_type" invisible="move_type == 'entry'" readonly="state != 'draft'" placeholder="e.g., 01"/>
+                                <label for="goods_type" string="Goods Type" invisible="move_type == 'entry'"/>
+                                <field name="goods_type" nolabel="1" invisible="move_type == 'entry'" readonly="state != 'draft'" placeholder="e.g., 01"/>
                                 <field name="tax_cash_basis_origin_move_id" invisible="not tax_cash_basis_origin_move_id"/>
                                 <label name="invoice_vendor_bill_id_label" for="invoice_vendor_bill_id" string="Auto-Complete" class="oe_edit_only"
                                        invisible="state != 'draft' or move_type not in ('in_invoice', 'in_refund')"/>
