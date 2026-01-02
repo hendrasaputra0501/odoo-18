@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Extend account.move form view to add goods_type field -->
+        <record id="view_move_form_goods_type" model="ir.ui.view">
+            <field name="name">account.move.form.goods_type</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_move_form"/>
+            <field name="arch" type="xml">
+                <!-- Add goods_type field after ref field in header_left_group -->
+                <xpath expr="//field[@name='ref' and @invisible=&quot;move_type != 'entry'&quot;]" position="after">
+                    <label for="goods_type" string="Goods Type" invisible="move_type == 'entry'"/>
+                    <field name="goods_type" nolabel="1" invisible="move_type == 'entry'" readonly="state != 'draft'" placeholder="e.g., 01"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
