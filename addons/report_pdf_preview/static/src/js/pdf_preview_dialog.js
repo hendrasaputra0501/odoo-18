@@ -68,38 +68,37 @@ function hasCustomData(action) {
 }
 
 /**
+ * Helper function to build report URL with parameters
+ */
+function buildReportUrl(baseUrl, action) {
+    const actionContext = action.context || {};
+    
+    if (hasCustomData(action)) {
+        const optionsParam = encodeURIComponent(JSON.stringify(action.data));
+        const contextParam = encodeURIComponent(JSON.stringify(actionContext));
+        return `${baseUrl}?options=${optionsParam}&context=${contextParam}`;
+    } else if (actionContext.active_ids) {
+        return `${baseUrl}/${actionContext.active_ids.join(",")}`;
+    }
+    return baseUrl;
+}
+
+/**
  * Report handler that intercepts qweb-pdf actions and shows preview dialog
  */
 async function pdfPreviewReportHandler(action, options, env) {
     if (action.report_type === "qweb-pdf") {
-        // Build the PDF URL
-        let pdfUrl = `/report/pdf/${action.report_name}`;
         const actionContext = action.context || {};
         
-        if (hasCustomData(action)) {
-            const optionsParam = encodeURIComponent(JSON.stringify(action.data));
-            const contextParam = encodeURIComponent(JSON.stringify(actionContext));
-            pdfUrl += `?options=${optionsParam}&context=${contextParam}`;
-        } else {
-            if (actionContext.active_ids) {
-                pdfUrl += `/${actionContext.active_ids.join(",")}`;
-            }
-        }
-
-        // Build download data
-        const downloadUrl = "/report/download";
-        let finalReportUrl = `/report/pdf/${action.report_name}`;
+        // Build the PDF URL for preview
+        const pdfUrl = buildReportUrl(`/report/pdf/${action.report_name}`, action);
         
-        if (hasCustomData(action)) {
-            const optionsParam = encodeURIComponent(JSON.stringify(action.data));
-            const contextParam = encodeURIComponent(JSON.stringify(actionContext));
-            finalReportUrl += `?options=${optionsParam}&context=${contextParam}`;
-        } else if (actionContext.active_ids) {
-            finalReportUrl += `/${actionContext.active_ids.join(",")}`;
-        }
-
+        // Build the report URL for download
+        const reportUrl = buildReportUrl(`/report/pdf/${action.report_name}`, action);
+        
+        // Download data format follows Odoo's expected structure: [report_url, report_type]
         const downloadData = {
-            data: JSON.stringify([finalReportUrl, action.report_type]),
+            data: JSON.stringify([reportUrl, action.report_type]),
             context: JSON.stringify({ ...env.services.user.context, ...actionContext }),
         };
 
@@ -107,7 +106,7 @@ async function pdfPreviewReportHandler(action, options, env) {
         env.services.dialog.add(PdfPreviewDialog, {
             pdfUrl: pdfUrl,
             title: action.display_name || action.name,
-            downloadUrl: downloadUrl,
+            downloadUrl: "/report/download",
             downloadData: downloadData,
         });
 
