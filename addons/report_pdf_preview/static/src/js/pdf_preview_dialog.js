@@ -90,10 +90,7 @@ async function pdfPreviewReportHandler(action, options, env) {
     if (action.report_type === "qweb-pdf") {
         const actionContext = action.context || {};
         
-        // Build the PDF URL for preview
-        const pdfUrl = buildReportUrl(`/report/pdf/${action.report_name}`, action);
-        
-        // Build the report URL for download
+        // Build the PDF URL (used for both preview and download)
         const reportUrl = buildReportUrl(`/report/pdf/${action.report_name}`, action);
         
         // Download data format follows Odoo's expected structure: [report_url, report_type]
@@ -104,10 +101,10 @@ async function pdfPreviewReportHandler(action, options, env) {
 
         // Show the dialog
         env.services.dialog.add(PdfPreviewDialog, {
-            pdfUrl: pdfUrl,
+            pdfUrl: reportUrl,
             title: action.display_name || action.name,
             downloadUrl: "/report/download",
-            downloadData: downloadData,
+            downloadData,
         });
 
         return true; // Handler processed the action
