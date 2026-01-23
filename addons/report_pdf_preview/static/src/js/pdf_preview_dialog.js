@@ -5,6 +5,7 @@ import { Dialog } from "@web/core/dialog/dialog";
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
 import { download } from "@web/core/network/download";
+import { useService } from "@web/core/utils/hooks";
 
 /**
  * PDF Preview Dialog Component
@@ -22,8 +23,10 @@ export class PdfPreviewDialog extends Component {
     };
 
     setup() {
+        this.notification = useService("notification");
         this.state = useState({
             isLoading: true,
+            hasError: false,
         });
     }
 
@@ -31,16 +34,37 @@ export class PdfPreviewDialog extends Component {
         this.state.isLoading = false;
     }
 
-    async downloadPdf() {
-        await download({
-            url: this.props.downloadUrl,
-            data: this.props.downloadData,
+    onIframeError() {
+        this.state.isLoading = false;
+        this.state.hasError = true;
+        this.notification.add(_t("Failed to load PDF preview"), {
+            type: "danger",
         });
+    }
+
+    async downloadPdf() {
+        try {
+            await download({
+                url: this.props.downloadUrl,
+                data: this.props.downloadData,
+            });
+        } catch (error) {
+            this.notification.add(_t("Failed to download PDF"), {
+                type: "danger",
+            });
+        }
     }
 
     get dialogTitle() {
         return this.props.title || _t("Report Preview");
     }
+}
+
+/**
+ * Helper function to check if action has custom data
+ */
+function hasCustomData(action) {
+    return action.data && Object.keys(action.data).length > 0;
 }
 
 /**
@@ -52,7 +76,7 @@ async function pdfPreviewReportHandler(action, options, env) {
         let pdfUrl = `/report/pdf/${action.report_name}`;
         const actionContext = action.context || {};
         
-        if (action.data && JSON.stringify(action.data) !== "{}") {
+        if (hasCustomData(action)) {
             const optionsParam = encodeURIComponent(JSON.stringify(action.data));
             const contextParam = encodeURIComponent(JSON.stringify(actionContext));
             pdfUrl += `?options=${optionsParam}&context=${contextParam}`;
@@ -64,10 +88,9 @@ async function pdfPreviewReportHandler(action, options, env) {
 
         // Build download data
         const downloadUrl = "/report/download";
-        const reportUrl = `/report/pdf/${action.report_name}`;
-        let finalReportUrl = reportUrl;
+        let finalReportUrl = `/report/pdf/${action.report_name}`;
         
-        if (action.data && JSON.stringify(action.data) !== "{}") {
+        if (hasCustomData(action)) {
             const optionsParam = encodeURIComponent(JSON.stringify(action.data));
             const contextParam = encodeURIComponent(JSON.stringify(actionContext));
             finalReportUrl += `?options=${optionsParam}&context=${contextParam}`;
