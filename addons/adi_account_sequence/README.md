@@ -16,6 +16,8 @@ This module extends Odoo's accounting sequence mixin to support custom fields (l
 
 - **Independent Counters**: Each year-month-goods_type combination maintains its own sequence
 
+- **Regex Validation**: Immediate validation when configuring journal sequence patterns
+
 - **Backward Compatible**: Existing sequences continue to work without modification
 
 ## Installation
@@ -26,15 +28,32 @@ This module extends Odoo's accounting sequence mixin to support custom fields (l
 
 ## Configuration
 
+### Step 1: Create or Configure a Journal
+
 1. Go to Accounting → Configuration → Journals
-2. Select your journal (e.g., Customer Invoices)
+2. Select your journal (e.g., Customer Invoices) or create a new one
 3. Set the `Sequence Override Regex` field:
 
 ```regex
 ^(?P<prefix1>.*?)(?P<year>\d{2})(?P<month>\d{2})(?P<prefix2>\D+?)(?P<goods_type>\w+)(?P<prefix3>\D+?)(?P<seq>\d+)(?P<suffix>\D*?)$
 ```
 
+**Important**: The system will validate the regex immediately. If it's invalid, you'll see an error:
+- "The sequence regex should at least contain the seq grouping keys"
+
+### Step 2: Validate the Configuration
+
+When you save the journal, the system checks:
+- ✅ The regex is syntactically correct
+- ✅ It contains the required `seq` capture group
+- ✅ It can match common sequence patterns
+
 ## Usage
+
+### Frontend Usage (Recommended for Users)
+
+For step-by-step instructions with screenshots and examples, see:
+- **[FRONTEND_GUIDE.md](FRONTEND_GUIDE.md)** - Complete guide for using the module through Odoo UI
 
 ### First Invoice (Set Pattern)
 
@@ -64,10 +83,11 @@ For subsequent invoices:
 
 ## Documentation
 
-- **ANSWER.md**: Direct answer to the original question
-- **CUSTOM_SEQUENCE_FORMAT.md**: Complete technical documentation
-- **IMPLEMENTATION_SUMMARY.md**: Implementation details
-- **example_goods_type_sequence.py**: Working example script
+- **[FRONTEND_GUIDE.md](FRONTEND_GUIDE.md)**: Step-by-step guide for using the module through the Odoo UI
+- **[ANSWER.md](ANSWER.md)**: Direct answer to the original question
+- **[CUSTOM_SEQUENCE_FORMAT.md](CUSTOM_SEQUENCE_FORMAT.md)**: Complete technical documentation
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)**: Implementation details
+- **[example_goods_type_sequence.py](example_goods_type_sequence.py)**: Working example script
 
 ## Technical Details
 
