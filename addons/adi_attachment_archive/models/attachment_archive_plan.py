@@ -230,7 +230,10 @@ class AttachmentArchivePlan(models.Model):
     # -------------------------------------------------------------------------
 
     def action_download_archive(self):
-        """Compress the archive folder for this plan and return a file download."""
+        """Compress the archive folder for this plan and return a file download.
+
+        Files retain their hash-based storage names (raw filestore layout).
+        """
         self.ensure_one()
         archive_dir = self._get_archive_dir()
         folder_path = os.path.join(archive_dir, self.archive_folder)
@@ -259,6 +262,91 @@ class AttachmentArchivePlan(models.Model):
         return {
             'type': 'ir.actions.act_url',
             'url': '/web/content/%d?download=true' % attachment.id,
+            'target': 'self',
+        }
+
+    def action_download_archive_named(self):
+        """Compress archived files into a tar.gz with each file renamed to the
+        corresponding ir.attachment name (user-visible filename).
+
+        The folder structure mirrors the original archive layout (including any
+        record sub-folders when ``use_record_subfolder`` is enabled), but each
+        file uses the human-readable attachment name instead of its hash.
+        Duplicate names within the same folder are disambiguated by appending
+        the attachment id.
+        """
+        self.ensure_one()
+        archive_dir = self._get_archive_dir()
+
+        archived_attachments = self.env['ir.attachment'].sudo().search([
+            ('archive_plan_id', '=', self.id),
+            ('store_fname', '!=', False),
+        ])
+
+        if not archived_attachments:
+            raise UserError(_('No archived attachments found for this plan.'))
+
+        base_folder_safe = self._sanitize_folder_name(self.archive_folder)
+        used_names = {}  # (folder_key, name) -> count, for deduplication
+
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+            for att in archived_attachments:
+                # Reconstruct the exact file path on disk
+                folder_safe = re.sub('[.:]', '', att.archive_folder or '').strip('/\\')
+                fname_safe = re.sub('[.:]', '', att.store_fname).strip('/\\')
+                src_path = os.path.join(archive_dir, folder_safe, fname_safe)
+
+                if not os.path.isfile(src_path):
+                    _logger.warning(
+                        'Named download: archived file not found at %s, skipping.', src_path
+                    )
+                    continue
+
+                # Determine the record sub-folder (part after the plan's base archive_folder)
+                rel = (att.archive_folder or '').strip('/')
+                base = self.archive_folder.strip('/')
+                record_subfolder = rel[len(base):].strip('/') if rel.startswith(base) else ''
+
+                # Build human-readable archive name
+                att_name = self._sanitize_folder_name(
+                    att.name or ('attachment_%d' % att.id)
+                )
+
+                # Compose the arcname path parts
+                parts = [base_folder_safe]
+                if record_subfolder:
+                    parts.append(self._sanitize_folder_name(record_subfolder))
+
+                # Deduplicate file names within the same folder
+                folder_key = '/'.join(parts)
+                name_key = (folder_key, att_name)
+                if name_key in used_names:
+                    used_names[name_key] += 1
+                    root, ext = os.path.splitext(att_name)
+                    att_name = '%s_%d%s' % (root, att.id, ext)
+                else:
+                    used_names[name_key] = 0
+
+                parts.append(att_name)
+                arcname = '/'.join(parts)
+
+                tar.add(src_path, arcname=arcname)
+
+        buf.seek(0)
+        tar_bytes = buf.read()
+
+        filename = '%s_named.tar.gz' % base_folder_safe
+        tmp_attachment = self.env['ir.attachment'].sudo().create({
+            'name': filename,
+            'datas': base64.b64encode(tar_bytes),
+            'res_model': self._name,
+            'res_id': self.id,
+            'type': 'binary',
+        })
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/web/content/%d?download=true' % tmp_attachment.id,
             'target': 'self',
         }
 

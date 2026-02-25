@@ -19,6 +19,8 @@
                             confirm="This will move attachment files to the archive directory. Continue?"/>
                     <button name="action_download_archive" type="object" string="Download Archive (tar.gz)"
                             invisible="attachment_count == 0"/>
+                    <button name="action_download_archive_named" type="object" string="Download Archive with Names (tar.gz)"
+                            invisible="attachment_count == 0"/>
                     <button name="action_mark_done" type="object" string="Mark as Done"
                             invisible="state != 'active'"/>
                     <button name="action_reset_draft" type="object" string="Reset to Draft"
