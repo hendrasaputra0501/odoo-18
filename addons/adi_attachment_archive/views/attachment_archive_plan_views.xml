@@ -17,6 +17,8 @@
                             invisible="state != 'active'"
                             class="btn-primary"
                             confirm="This will move attachment files to the archive directory. Continue?"/>
+                    <button name="action_download_archive" type="object" string="Download Archive (tar.gz)"
+                            invisible="attachment_count == 0"/>
                     <button name="action_mark_done" type="object" string="Mark as Done"
                             invisible="state != 'active'"/>
                     <button name="action_reset_draft" type="object" string="Reset to Draft"
@@ -38,6 +40,7 @@
                             <field name="model_id"/>
                             <field name="archive_folder"
                                    placeholder="e.g. invoices/2026"/>
+                            <field name="use_record_subfolder"/>
                         </group>
                         <group>
                             <field name="last_run"/>

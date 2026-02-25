@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
+import base64
+import io
 import logging
 import os
+import re
 import shutil
+import tarfile
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
@@ -54,6 +58,12 @@ class AttachmentArchivePlan(models.Model):
         required=True,
     )
     last_run = fields.Datetime(string='Last Run', readonly=True)
+    use_record_subfolder = fields.Boolean(
+        string='Use Record Sub-folder',
+        default=False,
+        help='When enabled, each attachment is stored inside a child sub-folder named '
+             'after the display name (complete_name) of the related record.',
+    )
     attachment_count = fields.Integer(
         string='Archived Attachments',
         compute='_compute_attachment_count',
@@ -111,6 +121,15 @@ class AttachmentArchivePlan(models.Model):
             ))
         return archive_dir
 
+    @staticmethod
+    def _sanitize_folder_name(name):
+        """Sanitize a string so it can be safely used as a filesystem folder name."""
+        # Replace path separators and reserved characters
+        sanitized = re.sub(r'[/\\<>:"|?*\x00-\x1f]', '_', name or 'unknown')
+        # Strip leading/trailing dots and spaces
+        sanitized = sanitized.strip('. ')
+        return sanitized or 'unknown'
+
     def action_run_archive(self):
         """Execute this archiving plan: move matching attachment files to the archive."""
         self.ensure_one()
@@ -120,7 +139,7 @@ class AttachmentArchivePlan(models.Model):
         archive_dir = self._get_archive_dir()
         filestore = config.filestore(self.env.cr.dbname)
 
-        # 1. Resolve the domain and find matching record IDs
+        # 1. Resolve the domain and find matching records
         domain = safe_eval.safe_eval(self.domain or '[]')
         try:
             target_records = self.env[self.model_name].search(domain)
@@ -134,7 +153,14 @@ class AttachmentArchivePlan(models.Model):
             self.last_run = fields.Datetime.now()
             return
 
-        # 2. Find attachments linked to those records that have not yet been archived
+        # 2. Build a display_name map when sub-folder by record is requested
+        record_name_map = {}
+        if self.use_record_subfolder:
+            for rec in target_records:
+                name = getattr(rec, 'complete_name', None) or rec.display_name or str(rec.id)
+                record_name_map[rec.id] = self._sanitize_folder_name(name)
+
+        # 3. Find attachments that have not yet been archived
         attachments = self.env['ir.attachment'].search([
             ('res_model', '=', self.model_name),
             ('res_id', 'in', target_records.ids),
@@ -162,8 +188,17 @@ class AttachmentArchivePlan(models.Model):
                 )
                 continue
 
+            # Determine effective destination folder for this attachment
+            if self.use_record_subfolder and attachment.res_id in record_name_map:
+                record_subfolder = record_name_map[attachment.res_id]
+                effective_folder = os.path.join(self.archive_folder, record_subfolder)
+                effective_dest_base = os.path.join(dest_base, record_subfolder)
+            else:
+                effective_folder = self.archive_folder
+                effective_dest_base = dest_base
+
             # Compute destination path preserving the hash-based sub-directory
-            dest_path = os.path.join(dest_base, attachment.store_fname)
+            dest_path = os.path.join(effective_dest_base, attachment.store_fname)
             dest_dir = os.path.dirname(dest_path)
             os.makedirs(dest_dir, exist_ok=True)
 
@@ -176,11 +211,11 @@ class AttachmentArchivePlan(models.Model):
                 )
                 continue
 
-            # Update the attachment record (bypass write triggers to avoid
-            # recomputing datas/raw which would try to read the old path)
+            # Update the attachment record.  Store the effective_folder so that
+            # _file_read can reconstruct the exact path later.
             attachment.sudo().write({
                 'archive_plan_id': self.id,
-                'archive_folder': self.archive_folder,
+                'archive_folder': effective_folder,
             })
             archived += 1
 
@@ -189,6 +224,43 @@ class AttachmentArchivePlan(models.Model):
             'Archive plan "%s" completed: %d attachment(s) archived.', self.name, archived
         )
         return archived
+
+    # -------------------------------------------------------------------------
+    # Download archive as tar.gz
+    # -------------------------------------------------------------------------
+
+    def action_download_archive(self):
+        """Compress the archive folder for this plan and return a file download."""
+        self.ensure_one()
+        archive_dir = self._get_archive_dir()
+        folder_path = os.path.join(archive_dir, self.archive_folder)
+
+        if not os.path.isdir(folder_path) or not os.listdir(folder_path):
+            raise UserError(_(
+                'Archive folder "%s" does not exist or is empty.', folder_path
+            ))
+
+        # Build the tar.gz in memory
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+            tar.add(folder_path, arcname=self._sanitize_folder_name(self.archive_folder))
+        buf.seek(0)
+        tar_bytes = buf.read()
+
+        # Store as a temporary attachment and redirect to download
+        filename = '%s.tar.gz' % self._sanitize_folder_name(self.archive_folder)
+        attachment = self.env['ir.attachment'].sudo().create({
+            'name': filename,
+            'datas': base64.b64encode(tar_bytes),
+            'res_model': self._name,
+            'res_id': self.id,
+            'type': 'binary',
+        })
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/web/content/%d?download=true' % attachment.id,
+            'target': 'self',
+        }
 
     # -------------------------------------------------------------------------
     # Scheduled action entry point
