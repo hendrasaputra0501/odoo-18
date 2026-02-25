@@ -250,6 +250,8 @@ class configmanager:
                          help="Comma-separated list of server-wide modules.")
         group.add_option("-D", "--data-dir", dest="data_dir", type='path',  # sensitive default set in _load_default_options
                          help="Directory where to store Odoo data")
+        group.add_option("--archive-dir", dest="archive_dir", type='path', my_default='',
+                         help="Directory where to store archived attachment files (outside data_dir)")
         parser.add_option_group(group)
 
         # HTTP
